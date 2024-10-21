@@ -1,0 +1,23 @@
+{
+    "name": "font-benchmark",
+    "version": "1.0.0",
+    "description": "Font Benchmark",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "vite build",
+        "start": "tsc && http-server",
+        "dev": "vite --host 0.0.0.0"
+    },
+    "dependencies": {
+        "@types/node": "^22.7.0",
+        "opentype.js": "^1.3.4",
+        "vite": "^5.4.5",
+        "vite-plugin-markdown": "^2.2.0",
+        "vite-plugin-md-to-html": "^0.0.18"
+    },
+    "devDependencies": {
+        "@types/opentype.js": "^1.3.8",
+        "http-server": "^14.1.1",
+        "typescript": "^4.9.5"
+    }
+}
