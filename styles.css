@@ -314,3 +314,22 @@ div#stats {
   opacity: 0.8;
   user-select: none;
 }
+
+.font-tools {
+  margin: 20px 0;
+}
+.extract-buttons {
+  margin-bottom: 20px;
+}
+.extract-btn {
+  padding: 5px 10px;
+  margin: 2px;
+  cursor: pointer;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 3px;
+}
+.extract-btn:hover {
+  background-color: #45a049;
+}
