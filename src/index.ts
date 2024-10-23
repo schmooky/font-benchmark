@@ -3,6 +3,11 @@ import { alphabets } from './alphabets';
 import { unicodes } from './unicodes';
 import { Glyph, Font } from 'opentype.js';
 
+interface ExtractionOptions {
+    includeNumbers: boolean;
+    includeLatinBase: boolean;
+}
+
 interface LanguageSupport {
     unicodeRangeSupport: number;
     alphabetSupport: number;
@@ -45,6 +50,13 @@ class FontPreviewer {
         this.currentFont = opentype.parse(fontArrayBuffer);
         
         this.logFontInfo();
+    }
+
+    private getExtractionOptions(): ExtractionOptions {
+        return {
+            includeNumbers: (document.getElementById('includeNumbers') as HTMLInputElement).checked,
+            includeLatinBase: (document.getElementById('includeLatinBase') as HTMLInputElement).checked
+        };
     }
     
     private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
@@ -111,7 +123,7 @@ class FontPreviewer {
             for (const [start, end] of ranges) {
                 for (let charCode = start; charCode <= end; charCode++) {
                     totalChars++;
-                    if (this.currentFont.charToGlyphIndex(String.fromCharCode(charCode)) !== 0) {
+                    if (this.currentFont!.charToGlyphIndex(String.fromCharCode(charCode)) !== 0) {
                         supportedChars++;
                     }
                 }
@@ -132,7 +144,7 @@ class FontPreviewer {
             let supportedChars = 0;
     
             for (const char of alphabet) {
-                if (this.currentFont.charToGlyphIndex(char) !== 0) {
+                if (this.currentFont!.charToGlyphIndex(char) !== 0) {
                     supportedChars++;
                 }
             }
@@ -189,7 +201,6 @@ class FontPreviewer {
         // Append the container to the document
         const container = document.createElement('div');
         container.innerHTML = containerHTML;
-        document.getElementById('supportContainer')!.innerHTML = '';
         document.getElementById('supportContainer')!.appendChild(container);
     }
 
@@ -209,8 +220,9 @@ class FontPreviewer {
         }
 
         try {
+            const options = this.getExtractionOptions();
             // Get necessary symbols for the language
-            const neededGlyphs = this.getNeededGlyphsForLanguage(language);
+            const neededGlyphs = this.getNeededGlyphsForLanguage(language,options);
             
             // Create new font with only needed glyphs
             const extractedFont = await this.createExtractedFont(neededGlyphs);
@@ -220,39 +232,6 @@ class FontPreviewer {
         } catch (error) {
             console.error('Error extracting font:', error);
         }
-    }
-
-    private getNeededGlyphsForLanguage(language: string): Set<number> {
-        const neededGlyphs = new Set<number>();
-
-        // Add basic Latin characters (always included)
-        for (let i = 0x0020; i <= 0x007F; i++) {
-            neededGlyphs.add(this.currentFont!.charToGlyphIndex(String.fromCharCode(i)));
-        }
-
-        // Add language-specific characters from Unicode ranges
-        if (unicodes[language]) {
-            for (const [start, end] of unicodes[language]) {
-                for (let i = start; i <= end; i++) {
-                    const glyphIndex = this.currentFont!.charToGlyphIndex(String.fromCharCode(i));
-                    if (glyphIndex !== 0) {
-                        neededGlyphs.add(glyphIndex);
-                    }
-                }
-            }
-        }
-
-        // Add language-specific characters from alphabet
-        if (alphabets[language]) {
-            for (const char of alphabets[language]) {
-                const glyphIndex = this.currentFont!.charToGlyphIndex(char);
-                if (glyphIndex !== 0) {
-                    neededGlyphs.add(glyphIndex);
-                }
-            }
-        }
-
-        return neededGlyphs;
     }
 
     private async createExtractedFont(neededGlyphs: Set<number>): Promise<Font> {
@@ -281,27 +260,77 @@ class FontPreviewer {
     }
 
     private downloadExtractedFont(font: Font, language: string): void {
+        const options = this.getExtractionOptions();
         const originalName = this.currentFont!.names.fullName.en;
         const newName = `${originalName}-${language}-extracted.ttf`;
         
-        // Generate font arrayBuffer
-        const arrayBuffer = font.toArrayBuffer();
+        // Get the base glyphs
+        const neededGlyphs = this.getNeededGlyphsForLanguage(language, options);
         
-        // Create download link
-        const blob = new Blob([arrayBuffer], { type: 'font/ttf' });
-        const url = URL.createObjectURL(blob);
+        // Create and download the font
+        this.createExtractedFont(neededGlyphs)
+            .then(extractedFont => {
+                const arrayBuffer = extractedFont.toArrayBuffer();
+                const blob = new Blob([arrayBuffer], { type: 'font/ttf' });
+                const url = URL.createObjectURL(blob);
+                
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = newName;
+                
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                
+                URL.revokeObjectURL(url);
+            });
+    }
+
+    private getNeededGlyphsForLanguage(language: string, options: ExtractionOptions): Set<number> {
+        const neededGlyphs = new Set<number>();
         
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = newName;
-        
-        // Trigger download
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        
-        // Clean up
-        URL.revokeObjectURL(url);
+        // Add language-specific glyphs
+        if (unicodes[language]) {
+            for (const [start, end] of unicodes[language]) {
+                for (let i = start; i <= end; i++) {
+                    const glyphIndex = this.currentFont!.charToGlyphIndex(String.fromCodePoint(i));
+                    if (glyphIndex !== 0) {
+                        neededGlyphs.add(glyphIndex);
+                    }
+                }
+            }
+        }
+
+        // Add Arabic numbers if selected
+        if (options.includeNumbers) {
+            for (let i = 0x30; i <= 0x39; i++) { // 0-9 in ASCII
+                const glyphIndex = this.currentFont!.charToGlyphIndex(String.fromCodePoint(i));
+                if (glyphIndex !== 0) {
+                    neededGlyphs.add(glyphIndex);
+                }
+            }
+        }
+
+        // Add Latin base characters if selected
+        if (options.includeLatinBase) {
+            // Add uppercase A-Z
+            for (let i = 0x41; i <= 0x5A; i++) {
+                const glyphIndex = this.currentFont!.charToGlyphIndex(String.fromCodePoint(i));
+                if (glyphIndex !== 0) {
+                    neededGlyphs.add(glyphIndex);
+                }
+            }
+            
+            // Add lowercase a-z
+            for (let i = 0x61; i <= 0x7A; i++) {
+                const glyphIndex = this.currentFont!.charToGlyphIndex(String.fromCodePoint(i));
+                if (glyphIndex !== 0) {
+                    neededGlyphs.add(glyphIndex);
+                }
+            }
+        }
+
+        return neededGlyphs;
     }
 }
 

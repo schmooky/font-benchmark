@@ -333,3 +333,23 @@ div#stats {
 .extract-btn:hover {
   background-color: #45a049;
 }
+
+.font-options {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: flex;
+  flex-flow: column;
+}
+
+.font-options label {
+  display: block;
+  margin: 5px 0;
+  cursor: pointer;
+  justify-items: center;
+}
+
+.font-options input[type="checkbox"] {
+  margin-right: 8px;
+}
